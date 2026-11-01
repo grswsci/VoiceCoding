@@ -410,7 +410,11 @@ def test_event_filter_suppresses_xbutton_messages_only(
 
     # pynput 1.8 short-circuits its own dispatch when the filter suppresses,
     # so the filter routes each side-button press through on_click itself;
-    # the handlers must have seen each press exactly once.
+    # the handlers must have seen each press exactly once. Dispatch runs on
+    # worker threads, so flush them before asserting.
+    deadline = time.perf_counter() + 2.0
+    while (len(handlers.front) < 1 or len(handlers.rear) < 1) and time.perf_counter() < deadline:
+        time.sleep(0.01)
     assert handlers.front == [1]
     assert handlers.rear == [1]
 
