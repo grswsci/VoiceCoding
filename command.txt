@@ -1,9 +1,32 @@
+# ===== VoiceCoding 日常运行备忘（PowerShell） =====
+# 模型已下载到本地缓存，日常运行完全离线，无需梯子/镜像/任何网络设置。
+
 D:
 cd D:\Liuyuyao_Workpath\VoiceCoding
 conda activate voicecoding
-# 首次运行前：模型从 Hugging Face 下载（约1.6GB），网络慢先设镜像
-set HF_ENDPOINT=https://hf-mirror.com
-pip install -e ".[gpu]"
-voicecoding doctor
+
+# ---- 日常启动 ----
 voicecoding run
+# 看到 "VoiceCoding ready." 即就绪；关闭 = 终端里 Ctrl+C
+
+# ---- 开机自启（只需设置一次） ----
+# 注意：在哪个环境跑 deploy，自启就用哪个环境的解释器
 #voicecoding deploy
+# 删除自启：删 %APPDATA%\voicecoding 和 启动文件夹里的 voicecoding.lnk
+
+# ---- 自检（诊断 CUDA/麦克风/模型/自启） ----
+#voicecoding doctor
+# 自启损坏时修复：voicecoding doctor --fix
+
+# ---- 侧键用法 ----
+# 前侧键 = 开始/停止录音；后侧键 = 停止并在光标处输出文字（空闲时后侧键 = 发送 Enter）
+# 热键 Ctrl+Shift+Space = 开始/停止录音；录音中按 Enter = 停止并提交
+# 手势（默认关）：按住右键移动 = 方向动作
+# 注意：程序运行期间侧键的"浏览器前进/后退"会被接管，属正常现象
+
+# ---- 仅当需要联网时（换模型/更新模型，日常用不到） ----
+# $env:HF_ENDPOINT = "https://hf-mirror.com"   # 或开梯子直连
+# hf download deepdml/faster-whisper-large-v3-turbo-ct2
+
+# ---- 依赖重装（换机/环境损坏时，日常用不到） ----
+# pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -e ".[gpu]"
