@@ -151,7 +151,12 @@ class SideButtonListener:
             "on_move": self.on_move,
         }
         if sys.platform == "win32":
+            # pynput's docs call this option "win32_event_filter", but the
+            # implementation reads options under "event_filter" (both names
+            # appear across released versions); pass both — unknown options
+            # are kept in _options and ignored harmlessly.
             listener_kwargs["win32_event_filter"] = self._win32_event_filter
+            listener_kwargs["event_filter"] = self._win32_event_filter
 
         listener = listener_ctor(**listener_kwargs)
         self._pynput_listener = listener
