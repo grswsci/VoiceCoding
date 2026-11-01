@@ -90,12 +90,15 @@ class VoiceMouseApp:
         # parent chain waits on pynput); after this one-time import the
         # in-thread imports hit sys.modules without touching the locks.
         importlib.import_module("pynput")
-        self._listener.start()
-        if self._keyboard_listener is not None:
-            self._keyboard_listener.start()
-        if self._recording_submit_listener is not None:
-            self._recording_submit_listener.start()
         self._recorder.open_stream()
+        # Install the low-level input hooks ONLY after the transcription
+        # model is resident: CUDA model loading stalls the whole process
+        # long enough for Windows to silently evict freshly installed
+        # low-level hooks (WH_MOUSE_LL / WH_KEYBOARD_LL), leaving side
+        # buttons and hotkeys dead for the rest of the session.
+        if self._config.prewarm_on_start:
+            self._prewarm_blocking()
+        self._start_listeners()
         self._set_recording_status(False)
         _LOG.info(
             "VoiceCoding ready. "
@@ -116,13 +119,53 @@ class VoiceMouseApp:
             "Front button toggles recording; rear button stops recording or "
             "sends Enter when idle."
         )
-        self._maybe_prewarm_transcriber()
+        if not self._prewarm_started:
+            self._maybe_prewarm_transcriber()
         try:
             _ = self._stop_event.wait()
         except KeyboardInterrupt:
             self._stop_event.set()
         finally:
             self.shutdown()
+
+    def _start_listeners(self) -> None:
+        self._listener.start()
+        if self._keyboard_listener is not None:
+            self._keyboard_listener.start()
+        if self._recording_submit_listener is not None:
+            self._recording_submit_listener.start()
+
+    def _prewarm_blocking(self) -> None:
+        _LOG.info("Loading transcription model before starting listeners...")
+        try:
+            self._transcriber.prewarm()
+            self._prewarm_started = True
+            _LOG.info("Transcriber prewarm complete")
+        except Exception as error:
+            _LOG.warning(
+                "Transcriber prewarm failed (%s); listeners start now and a "
+                "background retry will restore hooks after loading",
+                error,
+            )
+
+    def _restart_listeners_safe(self) -> None:
+        """Reinstall the low-level hooks after an in-process stall.
+
+        Windows silently removes WH_*_LL hooks whose thread stops responding
+        longer than the hook timeout; a CUDA model load can trip that even
+        though nothing in our callbacks is slow. Stopping and restarting the
+        listeners reinstalls fresh hooks.
+        """
+        try:
+            self._listener.stop()
+            if self._keyboard_listener is not None:
+                self._keyboard_listener.stop()
+            if self._recording_submit_listener is not None:
+                self._recording_submit_listener.stop()
+            self._start_listeners()
+            _LOG.info("Input listeners restarted; low-level hooks reinstalled")
+        except Exception as error:
+            _LOG.error("Failed to restart input listeners: %s", error)
 
     def shutdown(self) -> None:
         self._listener.stop()
@@ -345,6 +388,10 @@ class VoiceMouseApp:
         try:
             self._transcriber.prewarm()
             _LOG.info("Transcriber prewarm complete")
+            # The CUDA load stall may have gotten the freshly installed
+            # low-level hooks evicted; reinstall them now that the heavy
+            # work is done.
+            self._restart_listeners_safe()
         except Exception as error:
             _LOG.warning("Transcriber prewarm skipped: %s", error)
 
