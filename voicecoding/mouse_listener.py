@@ -179,15 +179,31 @@ class SideButtonListener:
     def _win32_event_filter(self, msg: int, data: object) -> None:
         """Low-level mouse hook: swallow X1/X2 so side buttons stay dedicated.
 
-        Runs inside the WH_MOUSE_LL hook callback: match message codes only,
-        zero I/O, zero sleeps. Slow callbacks get the hook removed by the
+        Runs inside the WH_MOUSE_LL hook callback. pynput 1.8.x implements
+        ``suppress_event()`` by raising SystemHook.SuppressException, which
+        short-circuits the remaining dispatch — calling it from the filter
+        would swallow the event but on_click would never fire. So this
+        filter performs the routing itself (a full on_click dispatch) and
+        suppresses afterwards; pynput's hook handler catches the raised
+        suppression exception and returns 1 to stop system propagation.
+        Zero I/O, zero sleeps: slow callbacks get the hook removed by the
         system and cause global pointer stutter.
         """
-        if msg in (_WM_XBUTTONDOWN, _WM_XBUTTONUP):
+        if msg not in (_WM_XBUTTONDOWN, _WM_XBUTTONUP):
+            return
+        pressed = msg == _WM_XBUTTONDOWN
+        pt = getattr(data, "pt", None)
+        if pt is None:
+            return
+        xbutton = (getattr(data, "mouseData", 0) >> 16) & 0xFFFF
+        mouse_module = importlib.import_module("pynput.mouse")
+        button = getattr(mouse_module.Button, "x1" if xbutton == 1 else "x2")
+        try:
+            self.on_click(pt.x, pt.y, button, pressed)
+        finally:
             listener = self._pynput_listener
             if listener is not None:
                 listener.suppress_event()
-        return None
 
     def on_click(self, x: int, y: int, button: object, pressed: bool) -> None:
         btn_name = str(button).lower().split(".")[-1]

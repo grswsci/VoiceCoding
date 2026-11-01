@@ -399,14 +399,20 @@ def test_event_filter_suppresses_xbutton_messages_only(
     listener, fake = _win32_listener(monkeypatch, handlers)
     event_filter = fake.kwargs["win32_event_filter"]
 
-    x1_data = SimpleNamespace(mouseData=0x0001)
-    x2_data = SimpleNamespace(mouseData=0x0002)
+    x1_data = SimpleNamespace(mouseData=0x0001, pt=SimpleNamespace(x=10, y=20))
+    x2_data = SimpleNamespace(mouseData=0x0002, pt=SimpleNamespace(x=30, y=40))
 
     event_filter(WM_XBUTTONDOWN, x1_data)
     event_filter(WM_XBUTTONUP, x1_data)
     event_filter(WM_XBUTTONDOWN, x2_data)
     event_filter(WM_XBUTTONUP, x2_data)
     assert fake.suppress_count == 4
+
+    # pynput 1.8 short-circuits its own dispatch when the filter suppresses,
+    # so the filter routes each side-button press through on_click itself;
+    # the handlers must have seen each press exactly once.
+    assert handlers.front == [1]
+    assert handlers.rear == [1]
 
     # Ordinary mouse messages must flow untouched: no suppression, and the
     # app-level callbacks stay silent.
