@@ -8,6 +8,7 @@ machine.
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import os
@@ -82,6 +83,13 @@ class VoiceMouseApp:
         self._prewarm_started: bool = False
 
     def run(self) -> None:
+        # Initialize the pynput package tree on the main thread BEFORE any
+        # listener thread starts. Two threads importing pynput.mouse and
+        # pynput.keyboard concurrently can deadlock on Python's per-module
+        # import locks (pynput -> pynput.keyboard while pynput.keyboard's
+        # parent chain waits on pynput); after this one-time import the
+        # in-thread imports hit sys.modules without touching the locks.
+        importlib.import_module("pynput")
         self._listener.start()
         if self._keyboard_listener is not None:
             self._keyboard_listener.start()
