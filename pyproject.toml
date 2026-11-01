@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voicecoding"
+version = "1.0.0"
+description = "Windows-native voice input driven by mouse side buttons, with local faster-whisper transcription"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "VoiceCoding" }]
+dependencies = [
+    "numpy>=1.24,<2",
+    "sounddevice",
+    "soundfile",
+    "pynput",
+    "pyperclip",
+    "faster-whisper>=1.1.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12",
+]
+dev = [
+    "pytest",
+]
+
+[project.scripts]
+voicecoding = "voicecoding.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "." }
+
+[tool.setuptools.packages.find]
+include = ["voicecoding*"]

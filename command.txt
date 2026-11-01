@@ -1,0 +1,9 @@
+D:
+cd D:\Liuyuyao_Workpath\VoiceCoding
+conda activate voicecoding
+# 首次运行前：模型从 Hugging Face 下载（约1.6GB），网络慢先设镜像
+set HF_ENDPOINT=https://hf-mirror.com
+pip install -e ".[gpu]"
+voicecoding doctor
+voicecoding run
+#voicecoding deploy
