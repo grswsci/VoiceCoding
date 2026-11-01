@@ -40,6 +40,7 @@ class _SoundDeviceModule(Protocol):
         channels: int,
         dtype: str,
         device: int | str | None,
+        blocksize: int,
         callback: Callable[[AudioFrame, int, object, object], None],
     ) -> _AudioStream: ...
 
@@ -48,6 +49,14 @@ class _SoundDeviceModule(Protocol):
 
 class _SoundFileModule(Protocol):
     def write(self, file: str | Path, data: AudioFrame, samplerate: int) -> None: ...
+
+
+# A 300 ms block keeps the PortAudio callback out of the GIL's way. With
+# short frequent callbacks plus resident CUDA threads, the low-level
+# mouse/keyboard hook callbacks get starved past Windows' hook timeout and
+# the system silently evicts the hooks: side buttons and hotkeys die for
+# the whole session while every thread still looks alive.
+_HOOK_SAFE_BLOCKSIZE = 4800
 
 
 class AudioRecorder:
@@ -101,6 +110,7 @@ class AudioRecorder:
                     channels=self._channels,
                     dtype=self._dtype,
                     device=device,
+                    blocksize=_HOOK_SAFE_BLOCKSIZE,
                     callback=self._callback,
                 )
             except Exception as first_error:
@@ -112,6 +122,7 @@ class AudioRecorder:
                     channels=self._channels,
                     dtype=self._dtype,
                     device=device,
+                    blocksize=_HOOK_SAFE_BLOCKSIZE,
                     callback=self._callback,
                 )
                 samplerate = fallback_rate
@@ -179,6 +190,7 @@ class AudioRecorder:
                     channels=self._channels,
                     dtype=self._dtype,
                     device=device,
+                    blocksize=_HOOK_SAFE_BLOCKSIZE,
                     callback=self._callback,
                 )
             except Exception as first_error:
@@ -190,6 +202,7 @@ class AudioRecorder:
                     channels=self._channels,
                     dtype=self._dtype,
                     device=device,
+                    blocksize=_HOOK_SAFE_BLOCKSIZE,
                     callback=self._callback,
                 )
                 samplerate = fallback_rate
