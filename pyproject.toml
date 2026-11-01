@@ -17,6 +17,9 @@ dependencies = [
     "pynput",
     "pyperclip",
     "faster-whisper>=1.1.0",
+    # faster-whisper's decode_audio passes metadata_errors to av.open(),
+    # which PyAV 14+ no longer accepts.
+    "av<14",
 ]
 
 [project.optional-dependencies]
