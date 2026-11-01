@@ -399,8 +399,12 @@ def test_event_filter_suppresses_xbutton_messages_only(
     listener, fake = _win32_listener(monkeypatch, handlers)
     event_filter = fake.kwargs["win32_event_filter"]
 
-    x1_data = SimpleNamespace(mouseData=0x0001, pt=SimpleNamespace(x=10, y=20))
-    x2_data = SimpleNamespace(mouseData=0x0002, pt=SimpleNamespace(x=30, y=40))
+    # Real MSLLHOOKSTRUCT layout: the X-button number lives in the HIGH
+    # 16 bits of mouseData (XBUTTON1=0x0001_0000, XBUTTON2=0x0002_0000).
+    x1_data = SimpleNamespace(
+        mouseData=0x00010000, pt=SimpleNamespace(x=10, y=20))
+    x2_data = SimpleNamespace(
+        mouseData=0x00020000, pt=SimpleNamespace(x=30, y=40))
 
     event_filter(WM_XBUTTONDOWN, x1_data)
     event_filter(WM_XBUTTONUP, x1_data)
@@ -419,7 +423,7 @@ def test_event_filter_suppresses_xbutton_messages_only(
     assert handlers.rear == [1]
 
     # Ordinary mouse messages must flow untouched: no suppression, and the
-    # app-level callbacks stay silent.
+    # app-level callbacks stay silent (the earlier counts stand unchanged).
     for message in (
         WM_MOUSEMOVE,
         WM_LBUTTONDOWN,
@@ -430,8 +434,8 @@ def test_event_filter_suppresses_xbutton_messages_only(
     ):
         event_filter(message, x1_data)
     assert fake.suppress_count == 4
-    assert handlers.front == []
-    assert handlers.rear == []
+    assert handlers.front == [1]
+    assert handlers.rear == [1]
     listener.stop()
 
 
